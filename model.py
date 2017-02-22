@@ -37,7 +37,7 @@ def input_pipeline(filenames, batch_size):
   return feature_batch, label_batch
 
 
-def conv(_input, name, width, stride, out_depth):
+def conv(_input, name, width, stride, out_depth, collection=None):
   with tf.variable_scope(name):
     tf.summary.histogram("in", _input)
 
@@ -51,6 +51,9 @@ def conv(_input, name, width, stride, out_depth):
     conv_b = tf.get_variable("b", out_depth, initializer=tf.constant_initializer(0))
      
     tf.add_to_collection("l2_losses", tf.nn.l2_loss(conv_w))
+    if collection is not None:
+      tf.add_to_collection(collection, conv_w)
+      tf.add_to_collection(collection, conv_b)
 
     _input = tf.nn.conv1d(_input, conv_w, stride, padding='SAME')
 
@@ -82,52 +85,103 @@ def fc(_input, name, out_depth):
     return _input, fc_b
 
 
+def batch_norm(_input, name, is_train):
+    original_shape = _input.get_shape().as_list()
+    rank4_shape = _input.get_shape().as_list()
+    rank4_shape.insert(2, 1)
+    _input = tf.reshape(_input, rank4_shape)
+    normed = tf.contrib.layers.batch_norm(_input, center=True, scale=False, decay=0.9, epsilon=1e-5, is_training=is_train, updates_collections="update_bn", fused=True, scope=name)
+    with tf.variable_scope(name, reuse=True):
+        tf.summary.histogram("normed", normed)
+        return tf.reshape(normed, original_shape)
+
+
 
 is_train = tf.placeholder_with_default(True, ())
+is_tune = tf.placeholder_with_default(False, ())
 global_step = tf.Variable(0, trainable=False)
-learning_rate = tf.train.exponential_decay(0.001, global_step, 100, 1.0, staircase=True)
+learning_rate = tf.train.exponential_decay(0.001, global_step, 8 * 10, 1.0, staircase=True)
 tf.summary.scalar('learning_rate', learning_rate)
 
-features, labels = input_pipeline(tf.train.match_filenames_once("./data/*.csv"), batch_size = 150)
-features_test, labels_test = input_pipeline(tf.train.match_filenames_once("./test/*.csv"), batch_size = 150)
+features, labels = input_pipeline(tf.train.match_filenames_once("./data/pretraining*.csv"), batch_size = 150)
+features_test, labels_test = input_pipeline(tf.train.match_filenames_once("./test/pretraining*.csv"), batch_size = 150)
+
+features_tune, labels_tune = input_pipeline(tf.train.match_filenames_once("./data/tune*.csv"), batch_size = 150)
+features_tune_test, labels_tune_test = input_pipeline(tf.train.match_filenames_once("./test/tune*.csv"), batch_size = 150)
 
 signal = tf.cond(is_train, lambda: features, lambda: features_test)
 labels = tf.cond(is_train, lambda: labels, lambda: labels_test)
 
+signal = tf.cond(is_tune, lambda: features_tune, lambda: features_tune_test)
+labels = tf.cond(is_tune, lambda: labels_tune, lambda: labels_tune_test)
 
-layer, conv_b = conv(signal, "conv1", 3, 1, 32)
+###
+
+layer, conv_b = conv(signal, "conv_pre1", 1, 1, 32, "tune_vars")
+layer = tf.nn.relu(layer + conv_b)
+print(layer)
+
+layer, conv_b = conv(layer, "conv_pre2", 1, 1, 32, "tune_vars")
+layer = tf.nn.relu(layer + conv_b)
+print(layer)
+
+###
+
+temp = layer
+
+layer, conv_b = conv(layer, "conv1", 3, 1, 32)
 layer = tf.nn.relu(layer + conv_b)
 print(layer)
 
 layer, conv_b = conv(layer, "conv2", 3, 1, 32)
+layer = tf.nn.relu(temp + layer + conv_b)
+print(layer)
+
+layer = tf.layers.max_pooling1d(layer, 2, 2, padding='same', name="pool1")
+
+temp = layer
+
+layer, conv_b = conv(layer, "conv3", 3, 1, 32)
 layer = tf.nn.relu(layer + conv_b)
 print(layer)
 
-layer = tf.layers.max_pooling1d(layer, 5, 2, padding='same', name="pool1")
+layer, conv_b = conv(layer, "conv4", 3, 1, 32)
+layer = tf.nn.relu(temp + layer + conv_b)
+print(layer)
 
-layer, conv_b = conv(layer, "conv3", 3, 1, 64)
+layer = tf.layers.max_pooling1d(layer, 2, 2, padding='same', name="pool2")
+
+temp = layer
+
+layer, conv_b = conv(layer, "conv5", 3, 1, 32)
 layer = tf.nn.relu(layer + conv_b)
 print(layer)
 
-layer, conv_b = conv(layer, "conv4", 3, 1, 64)
+layer, conv_b = conv(layer, "conv6", 3, 1, 32)
+layer = tf.nn.relu(temp + layer + conv_b)
+print(layer)
+
+layer = tf.layers.max_pooling1d(layer, 2, 2, padding='same', name="pool3")
+
+temp = layer
+
+layer, conv_b = conv(layer, "conv7", 3, 1, 32)
 layer = tf.nn.relu(layer + conv_b)
 print(layer)
 
-layer = tf.layers.max_pooling1d(layer, 5, 2, padding='same', name="pool2")
-
-layer, conv_b = conv(layer, "conv5", 3, 1, 128)
-layer = tf.nn.relu(layer + conv_b)
+layer, conv_b = conv(layer, "conv8", 3, 1, 32)
+layer = tf.nn.relu(temp + layer + conv_b)
 print(layer)
 
-layer, conv_b = conv(layer, "conv6", 3, 1, 128)
-layer = tf.nn.relu(layer + conv_b)
-print(layer)
+###
 
-layer = tf.reshape(layer, [-1, 10 * 128])
+layer = tf.reshape(layer, [-1, 5 * 32])
 layer = tf.layers.dropout(layer, training=is_train)
 print(layer)
 
-layer, fc_b = fc(layer, "fc1", 10 * 32)
+###
+
+layer, fc_b = fc(layer, "fc1", 5 * 8)
 layer = tf.nn.relu(layer + fc_b)
 print(layer)
 
@@ -147,5 +201,9 @@ total_cost = cost + tf.reduce_sum(tf.get_collection("l2_losses")) * 0.001
 tf.summary.scalar('error_total', total_cost)
 
 train = tf.train.MomentumOptimizer(learning_rate, 0.9).minimize(total_cost, global_step=global_step)
+
+tune = tf.train.MomentumOptimizer(0.001, 0.9).minimize(total_cost, var_list=tf.get_collection("tune_vars"))
+
+train = tf.cond(is_tune, lambda: tune, lambda: train)
 
 summary = tf.summary.merge_all()

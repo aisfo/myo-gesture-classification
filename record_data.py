@@ -69,7 +69,7 @@ def main(win):
         win.clear()
         win.addstr("Recording class for <{0}>".format(key))
         random_id = str(uuid.uuid4()).replace("-","")[:10]
-        curfile = open('data/recording_{0}_{1}.csv'.format(random_id, key), 'a')
+        curfile = open('data/tune_{0}_{1}.csv'.format(random_id, key), 'a')
     
         
     except Exception as e:
