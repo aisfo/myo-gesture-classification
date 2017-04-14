@@ -1,0 +1,5 @@
+
+
+num_sensors: 8
+seq_length: 40
+num_classes: 3
