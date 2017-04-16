@@ -34,7 +34,7 @@ with tf.Session(config=config) as sess:
 
 
   # PRETRAINING
-  for i in range(10001):
+  for i in range(5001):
 
     _, train_cost, train_accuracy, summary, step = sess.run([m.train, m.cost, m.accuracy, m.summary, m.global_step], 
         feed_dict={ m.is_train: True, m.is_tune: False, m.learning_rate: 0.01 })
