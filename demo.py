@@ -115,7 +115,7 @@ with tf.Session(config=config) as sess:
 
 
       def clear_data(_class):
-        self.tune_data[_class] = []
+        self.tune_data = [[], [], []]
 
 
       def on_connect(self, device, timestamp, firmware_version):
