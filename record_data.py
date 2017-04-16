@@ -11,30 +11,40 @@ import yaml
 import argparse
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--prefix", required=True)
+parser.add_argument("--length", required=False)
+args = parser.parse_args()
+
+recording_length = 10
+if args.length is not None:
+  recording_length = int(args.length)
+
+
 config = yaml.safe_load(open("config.yml"))
 seq_length = config["seq_length"]
-seq_per_file = 50
 
+seq_per_file = recording_length * 200 // seq_length
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--prefix", required=False)
-args = parser.parse_args()
 
 
 key = ""
 curfile = None
 defaultText = "Press 1(rock), 2(paper) or 3(scissors) to start recording data for that class"
+  
 
 
 myo.init()
 hub = myo.Hub()
 
-  
 def exit(signal, frame):
+  print("exiting")
+  hub.stop(True)
   hub.shutdown()
   sys.exit(0)
 
 signal.signal(signal.SIGINT, exit)
+
 
 class MyListener(myo.DeviceListener):
 
@@ -63,7 +73,6 @@ class MyListener(myo.DeviceListener):
       self.file_size += 1
 
 
-
 def main(win):
   global key
   global curfile
@@ -79,12 +88,15 @@ def main(win):
     try:
       key = win.getkey()
 
+      if curfile is not None: 
+        continue
+
       if str(key) in ["1", "2", "3"]:
         win.clear()
-        win.addstr("Recording class for <{0}>".format(key))
+        win.addstr("Recording data for <{0}>".format(key))
 
         random_id = str(uuid.uuid4()).replace("-","")[:10]
-        curfile = open('data_train/{0}_{1}_{2}.csv'.format(key, args.prefix, random_id), 'a')
+        curfile = open('data_train/{0}_{1}_{2}.csv'.format(args.prefix, key, random_id), 'a')
         
     except Exception as e:
       pass

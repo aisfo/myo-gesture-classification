@@ -30,7 +30,8 @@ def input_pipeline(filenames, batch_size):
 
   min_after_dequeue = 10000
   capacity = min_after_dequeue + 3 * batch_size
-  feature_batch, label_batch = tf.train.shuffle_batch([features, label], 
+  feature_batch, label_batch = tf.train.shuffle_batch(
+      [features, label], 
       batch_size=batch_size, 
       shapes=[[seq_length, num_sensors], [num_classes]],
       capacity=capacity,
@@ -54,17 +55,18 @@ def conv(_input, name, width, stride, out_depth, collection=None):
     conv_b = tf.get_variable("b", out_depth, initializer=tf.constant_initializer(0))
      
     tf.add_to_collection("l2_losses", tf.nn.l2_loss(conv_w))
+
     if collection is not None:
       tf.add_to_collection(collection, conv_w)
       tf.add_to_collection(collection, conv_b)
 
-    _input = tf.nn.conv1d(_input, conv_w, stride, padding='SAME')
+    _output = tf.nn.conv1d(_input, conv_w, stride, padding='SAME')
 
-    tf.summary.histogram("out", _input)
+    tf.summary.histogram("out", _output)
     tf.summary.histogram("w", conv_w)
     tf.summary.histogram("b", conv_b)
 
-    return _input, conv_b
+    return _output, conv_b
 
 
 
@@ -75,18 +77,18 @@ def fc(_input, name, out_depth):
     input_shape = _input.get_shape().as_list()
     in_depth = input_shape[-1]
 
-    fc_w = tf.get_variable("fc1_w", [in_depth, out_depth], initializer=tf.contrib.layers.xavier_initializer())
-    fc_b = tf.get_variable("fc1_b", [out_depth], initializer=tf.constant_initializer(0))
+    fc_w = tf.get_variable("w", [in_depth, out_depth], initializer=tf.contrib.layers.xavier_initializer())
+    fc_b = tf.get_variable("b", [out_depth], initializer=tf.constant_initializer(0))
 
     tf.add_to_collection("l2_losses", tf.nn.l2_loss(fc_w))
 
-    _input = tf.matmul(_input, fc_w)
+    _output = tf.matmul(_input, fc_w)
 
-    tf.summary.histogram("out", _input)
+    tf.summary.histogram("out", _output)
     tf.summary.histogram("w", fc_w)
     tf.summary.histogram("b", fc_b)
 
-    return _input, fc_b
+    return _output, fc_b
 
 
 
