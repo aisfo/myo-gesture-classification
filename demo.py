@@ -130,20 +130,19 @@ with tf.Session(config=config) as sess:
           if len(self.buffer) < SEQUENCE_LEN: return
           
           self.tune_data[_class].append(self.buffer)
+          self.clear_buffer()
+
           if len(self.tune_data[_class]) == 25:
             self.set_state("waiting")
             self.win.clear()
             self.win.addstr(tune_text)
             return
 
-          self.clear_buffer()
-
         if self.state is "predicting":
           self.buffer.append(emg_data)
           if len(self.buffer) < SEQUENCE_LEN: return
 
           prediction = sess.run(m.probs, feed_dict={ m.features: [ self.buffer ] })
-
           self.clear_buffer()
           
           probabilities = prediction[0][0]
