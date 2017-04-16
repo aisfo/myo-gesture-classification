@@ -1,16 +1,26 @@
-import tensorflow as tf
-import numpy as np
-import model as m
+import importlib
 import argparse
 import time
-from sklearn import metrics
+import os
 
+import tensorflow as tf
+import numpy as np
+from sklearn import metrics
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--load", required=False)
 parser.add_argument("--save", required=False)
+parser.add_argument("--graph", required=True)
 args = parser.parse_args()
+
+
+m = importlib.import_module(args.graph)
+print("\nLoaded graph {0}\n".format(m.modelName))
+
+
+os.makedirs("summary", exist_ok=True)
+os.makedirs("models", exist_ok=True)
 
 
 saver = tf.train.Saver()

@@ -13,25 +13,22 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix", required=True)
-parser.add_argument("--length", required=False)
 args = parser.parse_args()
-
-recording_length = 10
-if args.length is not None:
-  recording_length = int(args.length)
 
 
 config = yaml.safe_load(open("config.yml"))
 seq_length = config["seq_length"]
 
+recording_length = 10
 seq_per_file = recording_length * 200 // seq_length
 
+
+os.makedirs("data_train", exist_ok=True)
 
 
 key = ""
 curfile = None
 defaultText = "Press 1(rock), 2(paper) or 3(scissors) to start recording data for that class"
-  
 
 
 myo.init()

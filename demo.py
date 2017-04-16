@@ -4,6 +4,7 @@ import sys
 import uuid
 import os
 import argparse
+import importlib
 
 import tensorflow as tf
 import numpy as np
@@ -11,13 +12,15 @@ import myo
 import curses
 import yaml
 
-import model as m
-
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--load", required=True)
+parser.add_argument("--model", required=True)
+parser.add_argument("--graph", required=True)
 args = parser.parse_args()
 
+
+m = importlib.import_module(args.graph)
+print("\nLoaded graph {0}\n".format(m.modelName))
 
 
 config = yaml.safe_load(open("config.yml"))
@@ -30,13 +33,9 @@ RECORD_KEY = "r"
 
 
 
-
-
-
 key=""
 
 tune_text = "Press 1(rock), 2(paper) or 3(scissors) to record data for that class"
-
 
 
 saver = tf.train.Saver()
