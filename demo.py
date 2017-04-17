@@ -25,17 +25,15 @@ print("\nLoaded graph {0}\n".format(m.modelName))
 
 config = yaml.safe_load(open("config.yml"))
 
-SEQUENCE_LEN = config["seq_length"]
-
+SEQUENCE_LEN = config["sequence_len"]
+NUM_CLASSES = config["num_classes"]
 CLASS_KEYS = ["1", "2", "3"]
 TUNE_KEY = "t"
 RECORD_KEY = "r"
+TUNE_TEXT = "Press '1' (rock), '2' (paper) or '3' (scissors) to record data for that class or 't' to tune the model"
 
 
-
-key=""
-
-tune_text = "Press 1(rock), 2(paper) or 3(scissors) to record data for that class"
+key = ""
 
 
 saver = tf.train.Saver()
@@ -44,7 +42,7 @@ config.gpu_options.allow_growth = True
 
 with tf.Session(config=config) as sess:
   
-  saver.restore(sess, "./models/" + args.load)
+  saver.restore(sess, "./models/" + args.model)
 
   # Start populating the filename queue.
   coord = tf.train.Coordinator()
@@ -55,7 +53,6 @@ with tf.Session(config=config) as sess:
     
 
   def exit(signal, frame):
-    print("exiting")
     hub.stop(True)
     hub.shutdown()
 
@@ -71,29 +68,30 @@ with tf.Session(config=config) as sess:
     features = []
     labels = []
 
-    for class_data, _class in enumerate(tune_data):
+    for _class, class_data in enumerate(tune_data):
       for class_data_point in class_data:
-        one_hot_class = [ 0, 0, 0 ]
+        one_hot_class = [0] * NUM_CLASSES
         one_hot_class[_class] = 1
         labels.append(one_hot_class)
         features.append(class_data_point)
 
     for i in range(101):
-      _, train_cost, train_accuracy = sess.run([m.train, m.cost, m.accuracy], 
+      _, train_cost, train_accuracy = sess.run([m.finetune, m.cost, m.accuracy], 
         feed_dict={ 
           m.is_train: True, 
-          m.is_tune: True, 
           m.features: features, 
           m.labels: labels,
           m.learning_rate: 0.001 
         })
 
+      print(train_accuracy, train_cost, i)
+
 
   class MyListener(myo.DeviceListener):
 
       def __init__(self, win):
-        self.buffer = []
         self.win = win
+        self.buffer = []
         self.tune_data = [[], [], []]
         self.state = "predicting"
 
@@ -102,19 +100,19 @@ with tf.Session(config=config) as sess:
         return self.tune_data
 
 
-      def set_state(self, _state):
-        self.state = _state
-
-
       def get_state(self):
         return self.state
 
 
-      def clear_buffer():
+      def set_state(self, _state):
+        self.state = _state
+
+
+      def clear_buffer(self):
         self.buffer = []
 
 
-      def clear_data(_class):
+      def clear_data(self):
         self.tune_data = [[], [], []]
 
 
@@ -126,17 +124,17 @@ with tf.Session(config=config) as sess:
         if self.state is "recording" and key in CLASS_KEYS:
           _class = int(key) - 1
 
+          if len(self.tune_data[_class]) == 25:
+            self.set_state("waiting")
+            self.win.clear()
+            self.win.addstr(TUNE_TEXT)
+            return
+
           self.buffer.append(emg_data)
           if len(self.buffer) < SEQUENCE_LEN: return
           
           self.tune_data[_class].append(self.buffer)
           self.clear_buffer()
-
-          if len(self.tune_data[_class]) == 25:
-            self.set_state("waiting")
-            self.win.clear()
-            self.win.addstr(tune_text)
-            return
 
         if self.state is "predicting":
           self.buffer.append(emg_data)
@@ -145,9 +143,10 @@ with tf.Session(config=config) as sess:
           prediction = sess.run(m.probs, feed_dict={ m.features: [ self.buffer ] })
           self.clear_buffer()
           
-          probabilities = prediction[0][0]
+          probabilities = prediction[0]
           self.win.clear()
-          self.win.addstr("classification: {0} => {1}".format([format(a, '.4f') for a in probabilities], np.argmax(probabilities)))
+          self.win.addstr("Press 'r' to record data for tuning\n")
+          self.win.addstr("Classification: {0} => {1}".format([format(a, '.4f') for a in probabilities], np.argmax(probabilities)))
 
 
   def main(win):
@@ -161,16 +160,16 @@ with tf.Session(config=config) as sess:
 
     while True: 
       try:
+        key = str(win.getkey())
+
         state = listener.get_state()
         if state is "recording": continue
-
-        key = str(win.getkey())
 
         if state is "predicting" and key == RECORD_KEY:
           listener.set_state("waiting")
           listener.clear_buffer()
           win.clear()
-          win.addstr(tune_text)
+          win.addstr(TUNE_TEXT)
 
         elif state is "waiting" and key in CLASS_KEYS:
           listener.set_state("recording")

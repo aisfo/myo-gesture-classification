@@ -46,14 +46,13 @@ with tf.Session(config=config) as sess:
   # PRETRAINING
   for i in range(5001):
 
-    _, train_cost, train_accuracy, summary, step = sess.run([m.train, m.cost, m.accuracy, m.summary, m.global_step], 
-        feed_dict={ m.is_train: True, m.is_tune: False, m.learning_rate: 0.01 })
+    _, train_cost, train_accuracy, summary, step = sess.run([m.full_train, m.cost, m.accuracy, m.summary, m.global_step], 
+        feed_dict={ m.is_train: True, m.learning_rate: 0.01 })
 
     summary_writer.add_summary(summary, step)
     
     if i % 100 == 0:
-      test_cost, test_accuracy, summary = sess.run([m.cost, m.accuracy, m.summary_test], 
-          feed_dict={ m.is_train: False, m.is_tune: False })
+      test_cost, test_accuracy, summary = sess.run([m.cost, m.accuracy, m.summary_test], feed_dict={})
 
       summary_writer_test.add_summary(summary, step)
 

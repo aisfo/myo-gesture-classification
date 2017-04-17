@@ -1,14 +1,13 @@
-from queue import Queue
-import myo
-import threading
 import time
 import signal
 import sys
-import curses
 import uuid
 import os
-import yaml
 import argparse
+
+import myo
+import curses
+import yaml
 
 
 parser = argparse.ArgumentParser()
@@ -17,10 +16,9 @@ args = parser.parse_args()
 
 
 config = yaml.safe_load(open("config.yml"))
-seq_length = config["seq_length"]
 
-recording_length = 10
-seq_per_file = recording_length * 200 // seq_length
+SEQUENCE_LEN = config["sequence_len"]
+SEQUENCE_PER_FILE = 200 * 10 // SEQUENCE_LEN
 
 
 os.makedirs("data_train", exist_ok=True)
@@ -55,7 +53,7 @@ class MyListener(myo.DeviceListener):
   def on_emg_data(self, device, timestamp, emg_data):
     global curfile
 
-    if curfile is not None and self.file_size >= seq_length * seq_per_file:
+    if curfile is not None and self.file_size >= SEQUENCE_LEN * SEQUENCE_PER_FILE:
       curfile.close()
       curfile = None
       self.file_size = 0

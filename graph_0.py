@@ -5,14 +5,11 @@ import yaml
 from helpers import *
 
 
-
-modelName = "2xCONVTUNE_2xCONV_1xFC"
+modelName = "1xCONVTUNE_2xCONV_1xFC"
 
 
 
 is_train = tf.placeholder_with_default(False, ())
-is_tune = tf.placeholder_with_default(False, ())
-
 
 global_step = tf.Variable(0, trainable=False)
 
@@ -26,8 +23,8 @@ features_pre_test, labels_pre_test = input_pipeline(tf.train.match_filenames_onc
 features_pre = tf.cond(is_train, lambda: features_pre_train, lambda: features_pre_test)
 labels_pre = tf.cond(is_train, lambda: labels_pre_train, lambda: labels_pre_test)
 
-features = tf.placeholder_with_default(features_pre, shape=(None, seq_length, num_sensors))
-labels = tf.placeholder_with_default(labels_pre, shape=(None, num_classes))
+features = tf.placeholder_with_default(features_pre, shape=(None, SEQUENCE_LEN, NUM_SENSORS))
+labels = tf.placeholder_with_default(labels_pre, shape=(None, NUM_CLASSES))
 
 
 
@@ -79,10 +76,8 @@ total_cost = cost + l2_losses
 
 ###
 
-pretrain = tf.train.MomentumOptimizer(learning_rate, 0.9).minimize(total_cost, global_step=global_step)
+full_train = tf.train.MomentumOptimizer(learning_rate, 0.9).minimize(total_cost, global_step=global_step)
 finetune = tf.train.MomentumOptimizer(learning_rate, 0.9).minimize(total_cost, var_list=tf.get_collection("tune_vars"))
-
-train = tf.cond(is_tune, lambda: finetune, lambda: pretrain)
 
 ###
 

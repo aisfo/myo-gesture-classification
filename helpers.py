@@ -5,9 +5,9 @@ import yaml
 
 config = yaml.safe_load(open("config.yml"))
 
-num_sensors = config["num_sensors"]
-seq_length = config["seq_length"]
-num_classes = config["num_classes"]
+NUM_SENSORS = config["num_sensors"]
+SEQUENCE_LEN = config["sequence_len"]
+NUM_CLASSES = config["num_classes"]
 
 
 
@@ -15,25 +15,25 @@ def input_pipeline(filenames, batch_size):
   filename_queue = tf.train.string_input_producer(filenames, shuffle=True)
 
   reader = tf.TextLineReader()
-  keys, values = reader.read_up_to(filename_queue, seq_length)
+  keys, values = reader.read_up_to(filename_queue, SEQUENCE_LEN)
 
-  record_defaults = [[0]] * (num_sensors + 1)
+  record_defaults = [[0]] * (NUM_SENSORS + 1)
   csv_line = tf.decode_csv(values, record_defaults=record_defaults)
 
-  features = tf.stack(csv_line[:num_sensors], axis=1)
+  features = tf.stack(csv_line[:NUM_SENSORS], axis=1)
   features = tf.to_float(features)
   mean, var = tf.nn.moments(features, axes=[0, 1])
   features = (features - mean) / (tf.sqrt(var) + 1e-5)
 
   label = csv_line[-1][0] - 1
-  label = tf.one_hot(label, depth=num_classes)
+  label = tf.one_hot(label, depth=NUM_CLASSES)
 
   min_after_dequeue = 10000
   capacity = min_after_dequeue + 3 * batch_size
   feature_batch, label_batch = tf.train.shuffle_batch(
       [features, label], 
       batch_size=batch_size, 
-      shapes=[[seq_length, num_sensors], [num_classes]],
+      shapes=[[SEQUENCE_LEN, NUM_SENSORS], [NUM_CLASSES]],
       capacity=capacity,
       min_after_dequeue=min_after_dequeue)
 
